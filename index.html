@@ -1,0 +1,209 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Secure Encoded Chat Room</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    #chatbox {
+      width: 100%;
+      height: 300px;
+      overflow-y: scroll;
+      background: #fff;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    .msg-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .msg {
+      padding: 5px;
+      background: #e3f2fd;
+      border-radius: 5px;
+      flex-grow: 1;
+      word-break: break-word;
+    }
+    .hold-btn, .delete-btn {
+      width: 30px;
+      height: 30px;
+      background: #ddd;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      margin: 0 5px;
+    }
+    input, button {
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    #message {
+      width: 80%;
+      background-color: white;
+      caret-color: black;
+    }
+    #send {
+      width: 18%;
+    }
+    #overlay, #nameOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0009;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #clearBtn {
+      background: #ff5252;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .username {
+      font-weight: bold;
+      margin-right: 8px;
+      color: #1565c0;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <h2>Enter Chat Room Password</h2>
+    <input type="password" id="roomPass" placeholder="Enter Password">
+    <button onclick="checkPassword()">Enter</button>
+  </div>
+  <div id="nameOverlay" style="display:none;">
+    <h2>Enter Your Name</h2>
+    <input type="text" id="username" placeholder="Your Name">
+    <button onclick="saveUsername()">Start Chatting</button>
+  </div>
+  <h2>Secure Chat Room</h2>
+  <div id="chatbox"></div>
+  <input type="text" id="message" placeholder="Type here...">
+  <button id="send">Send</button>
+  <br>
+  <button id="clearBtn" onclick="clearChat()">Clear Chat</button>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqJnyy53xEI0l7BaK6yVpVxlarRgzBRV0",
+      authDomain: "chatapp-a898c.firebaseapp.com",
+      projectId: "chatapp-a898c",
+      storageBucket: "chatapp-a898c.appspot.com",
+      messagingSenderId: "487437407547",
+      appId: "1:487437407547:web:7caeafe7bbe4a72718931e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const chatRef = db.ref("messages");
+
+    let currentUser = "";
+
+    const codeMap = {
+      a: "あ", b: "い", c: "う", d: "え", e: "お", f: "か", g: "き", h: "く", i: "け", j: "こ",
+      k: "さ", l: "し", m: "す", n: "せ", o: "そ", p: "た", q: "ち", r: "つ", s: "て", t: "と",
+      u: "な", v: "に", w: "ぬ", x: "ね", y: "の", z: "は",
+      A: "ヒ", B: "フ", C: "ヘ", D: "ホ", E: "マ", F: "ミ", G: "ム", H: "メ", I: "モ", J: "ヤ",
+      K: "ユ", L: "ヨ", M: "ラ", N: "リ", O: "ル", P: "レ", Q: "ロ", R: "ワ", S: "ヲ", T: "ン",
+      U: "ガ", V: "ギ", W: "グ", X: "ゲ", Y: "ゴ", Z: "ザ",
+      0: "ゼ", 1: "ジ", 2: "ズ", 3: "ゾ", 4: "ダ", 5: "ヂ", 6: "ヅ", 7: "デ", 8: "ド", 9: "バ",
+      " ": "␣", ".": "。", ",": "、", "!": "！", "?": "？"
+    };
+
+    function encode(text) {
+      return text.split('').map(ch => codeMap[ch] || ch).join('');
+    }
+
+    document.getElementById("send").onclick = function() {
+      const real = message.value.trim();
+      if (!real || !currentUser) return;
+      const encoded = encode(real);
+      chatRef.push({ name: currentUser, encoded, original: real });
+      message.value = "";
+    };
+
+    chatRef.on("child_added", snapshot => {
+      const data = snapshot.val();
+      const wrapper = document.createElement("div");
+      wrapper.className = "msg-wrapper";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.onclick = () => {
+        const pass = prompt("Enter admin delete code:");
+        if (pass === "1252") {
+          snapshot.ref.remove();
+          wrapper.remove();
+        }
+      };
+
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg";
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "username";
+      nameSpan.textContent = `[${data.name}] `;
+      msgDiv.textContent = data.encoded;
+      msgDiv.prepend(nameSpan);
+
+      const holdBtn = document.createElement("button");
+      holdBtn.className = "hold-btn";
+      holdBtn.onmousedown = () => { msgDiv.textContent = data.original; msgDiv.prepend(nameSpan); };
+      holdBtn.onmouseup = () => { msgDiv.textContent = data.encoded; msgDiv.prepend(nameSpan); };
+      holdBtn.ontouchstart = holdBtn.onmousedown;
+      holdBtn.ontouchend = holdBtn.onmouseup;
+
+      wrapper.appendChild(deleteBtn);
+      wrapper.appendChild(msgDiv);
+      wrapper.appendChild(holdBtn);
+      document.getElementById("chatbox").appendChild(wrapper);
+      document.getElementById("chatbox").scrollTop = document.getElementById("chatbox").scrollHeight;
+    });
+
+    function checkPassword() {
+      const pass = document.getElementById("roomPass").value;
+      if (pass === "1252999") {
+        document.getElementById("overlay").style.display = "none";
+        document.getElementById("nameOverlay").style.display = "flex";
+      } else {
+        alert("Wrong password!");
+      }
+    }
+
+    function saveUsername() {
+      const name = document.getElementById("username").value.trim();
+      if (name) {
+        currentUser = name;
+        document.getElementById("nameOverlay").style.display = "none";
+      } else {
+        alert("Please enter your name");
+      }
+    }
+
+    function clearChat() {
+      const pass = prompt("Enter delete password:");
+      if (pass === "1252") {
+        chatRef.remove();
+        document.getElementById("chatbox").innerHTML = "";
+      } else {
+        alert("Incorrect delete password!");
+      }
+    }
+  </script>
+</body>
+</html>
