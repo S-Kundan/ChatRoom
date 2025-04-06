@@ -1,85 +1,25 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Secure Encoded Chat Room</title>
+  <title>Secure Chat Room</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f0f0;
-      margin: 0;
-      padding: 20px;
-    }
-    #chatbox {
-      width: 100%;
-      height: 300px;
-      overflow-y: scroll;
-      background: #fff;
-      padding: 10px;
-      border: 1px solid #ccc;
-    }
-    .msg-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .msg {
-      padding: 5px;
-      background: #e3f2fd;
-      border-radius: 5px;
-      flex-grow: 1;
-      word-break: break-word;
-    }
-    .hold-btn, .delete-btn {
-      width: 30px;
-      height: 30px;
-      background: #ddd;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      margin: 0 5px;
-    }
-    input, button {
-      margin-top: 10px;
-      padding: 10px;
-      font-size: 16px;
-    }
-    #message {
-      width: 80%;
-      background-color: white;
-      caret-color: black;
-    }
-    #send {
-      width: 18%;
-    }
-    #overlay, #nameOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #0009;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 10;
-    }
-    #clearBtn {
-      background: #ff5252;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    .username {
-      font-weight: bold;
-      margin-right: 8px;
-      color: #1565c0;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f0f0; padding: 20px; }
+    #chatbox { width: 100%; height: 300px; overflow-y: scroll; background: #fff; padding: 10px; border: 1px solid #ccc; }
+    .msg-wrapper { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .msg { padding: 5px; background: #e3f2fd; border-radius: 5px; flex-grow: 1; word-break: break-word; }
+    .hold-btn, .delete-btn { width: 30px; height: 30px; background: #ddd; border: none; border-radius: 50%; cursor: pointer; margin: 0 5px; }
+    input, button { margin-top: 10px; padding: 10px; font-size: 16px; }
+    #message { width: 75%; background-color: white; caret-color: black; }
+    #send { width: 15%; }
+    #upload { width: 8%; }
+    #overlay, #nameOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0009; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+    #clearBtn { background: #ff5252; color: white; border: none; cursor: pointer; }
+    .username { font-weight: bold; margin-right: 8px; color: #1565c0; }
+    #userList { margin-top: 10px; font-size: 14px; color: green; }
   </style>
 </head>
 <body>
@@ -93,16 +33,23 @@
     <input type="text" id="username" placeholder="Your Name">
     <button onclick="saveUsername()">Start Chatting</button>
   </div>
-  <h2>Secure Chat Room</h2>
+
+  <h2></h2>
   <div id="chatbox"></div>
-  <input type="text" id="message" placeholder="Type here...">
+  <input type="text" id="message" placeholder="Type your message...">
+  <button id="upload">📎</button>
   <button id="send">Send</button>
+  <input type="file" id="fileInput" style="display:none;">
   <br>
   <button id="clearBtn" onclick="clearChat()">Clear Chat</button>
+  <div id="userList"><b>Active Users:</b> <span id="activeUsers"></span></div>
+  <audio id="notifSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCqJnyy53xEI0l7BaK6yVpVxlarRgzBRV0",
       authDomain: "chatapp-a898c.firebaseapp.com",
+      databaseURL: "https://chatapp-a898c-default-rtdb.firebaseio.com",
       projectId: "chatapp-a898c",
       storageBucket: "chatapp-a898c.appspot.com",
       messagingSenderId: "487437407547",
@@ -111,47 +58,37 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const storage = firebase.storage();
     const chatRef = db.ref("messages");
+    const usersRef = db.ref("activeUsers");
 
     let currentUser = "";
 
     const codeMap = {
-      a: "あ", b: "い", c: "う", d: "え", e: "お", f: "か", g: "き", h: "く", i: "け", j: "こ",
-      k: "さ", l: "し", m: "す", n: "せ", o: "そ", p: "た", q: "ち", r: "つ", s: "て", t: "と",
-      u: "な", v: "に", w: "ぬ", x: "ね", y: "の", z: "は",
-      A: "ヒ", B: "フ", C: "ヘ", D: "ホ", E: "マ", F: "ミ", G: "ム", H: "メ", I: "モ", J: "ヤ",
-      K: "ユ", L: "ヨ", M: "ラ", N: "リ", O: "ル", P: "レ", Q: "ロ", R: "ワ", S: "ヲ", T: "ン",
-      U: "ガ", V: "ギ", W: "グ", X: "ゲ", Y: "ゴ", Z: "ザ",
-      0: "ゼ", 1: "ジ", 2: "ズ", 3: "ゾ", 4: "ダ", 5: "ヂ", 6: "ヅ", 7: "デ", 8: "ド", 9: "バ",
-      " ": "␣", ".": "。", ",": "、", "!": "！", "?": "？"
+      a:"あ",b:"い",c:"う",d:"え",e:"お",f:"か",g:"き",h:"く",i:"け",j:"こ",k:"さ",l:"し",m:"す",n:"せ",o:"そ",
+      p:"た",q:"ち",r:"つ",s:"て",t:"と",u:"な",v:"に",w:"ぬ",x:"ね",y:"の",z:"は",
+      A:"ヒ",B:"フ",C:"ヘ",D:"ホ",E:"マ",F:"ミ",G:"ム",H:"メ",I:"モ",J:"ヤ",K:"ユ",L:"ヨ",M:"ラ",N:"リ",O:"ル",P:"レ",
+      Q:"ロ",R:"ワ",S:"ヲ",T:"ン",U:"ガ",V:"ギ",W:"グ",X:"ゲ",Y:"ゴ",Z:"ザ",
+      0:"ゼ",1:"ジ",2:"ズ",3:"ゾ",4:"ダ",5:"ヂ",6:"ヅ",7:"デ",8:"ド",9:"バ",
+      " ":"␣",".":"。",",":"、","!":"！","?":"？"
     };
-
     function encode(text) {
       return text.split('').map(ch => codeMap[ch] || ch).join('');
     }
 
-    document.getElementById("send").onclick = function() {
+    document.getElementById("send").onclick = sendMessage;
+    function sendMessage() {
       const real = message.value.trim();
       if (!real || !currentUser) return;
       const encoded = encode(real);
       chatRef.push({ name: currentUser, encoded, original: real });
       message.value = "";
-    };
+    }
 
-    chatRef.on("child_added", snapshot => {
-      const data = snapshot.val();
+    chatRef.on("child_added", snap => {
+      const data = snap.val();
       const wrapper = document.createElement("div");
       wrapper.className = "msg-wrapper";
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "delete-btn";
-      deleteBtn.onclick = () => {
-        const pass = prompt("Enter admin delete code:");
-        if (pass === "1252") {
-          snapshot.ref.remove();
-          wrapper.remove();
-        }
-      };
 
       const msgDiv = document.createElement("div");
       msgDiv.className = "msg";
@@ -168,42 +105,68 @@
       holdBtn.ontouchstart = holdBtn.onmousedown;
       holdBtn.ontouchend = holdBtn.onmouseup;
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.onclick = () => {
+        const pass = prompt("Enter admin delete code or your name to delete:");
+        if (pass === "1252" || pass === data.name) {
+          snap.ref.remove(); wrapper.remove();
+        }
+      };
+
       wrapper.appendChild(deleteBtn);
       wrapper.appendChild(msgDiv);
       wrapper.appendChild(holdBtn);
       document.getElementById("chatbox").appendChild(wrapper);
-      document.getElementById("chatbox").scrollTop = document.getElementById("chatbox").scrollHeight;
+      document.getElementById("chatbox").scrollTop = chatbox.scrollHeight;
+      document.getElementById("notifSound").play();
     });
 
     function checkPassword() {
       const pass = document.getElementById("roomPass").value;
-      if (pass === "79924") {
-        document.getElementById("overlay").style.display = "none";
-        document.getElementById("nameOverlay").style.display = "flex";
-      } else {
-        alert("Wrong password!");
-      }
+      if (pass === "1252999") {
+        overlay.style.display = "none";
+        nameOverlay.style.display = "flex";
+      } else alert("Wrong password!");
     }
 
     function saveUsername() {
       const name = document.getElementById("username").value.trim();
       if (name) {
         currentUser = name;
-        document.getElementById("nameOverlay").style.display = "none";
-      } else {
-        alert("Please enter your name");
-      }
+        nameOverlay.style.display = "none";
+        usersRef.child(name).set(true);
+        usersRef.child(name).onDisconnect().remove();
+      } else alert("Enter your name!");
     }
 
     function clearChat() {
-      const pass = prompt("Enter delete password:");
+      const pass = prompt("Enter admin delete code:");
       if (pass === "1252") {
         chatRef.remove();
-        document.getElementById("chatbox").innerHTML = "";
-      } else {
-        alert("Incorrect delete password!");
+        chatbox.innerHTML = "";
       }
     }
+
+    document.getElementById("upload").onclick = () => fileInput.click();
+    fileInput.onchange = e => {
+      const file = e.target.files[0];
+      if (!file || !currentUser) return;
+      const filePath = `uploads/${Date.now()}_${file.name}`;
+      storage.ref(filePath).put(file).then(snapshot => {
+        snapshot.ref.getDownloadURL().then(url => {
+          const isImage = file.type.startsWith("image/");
+          const encoded = encode(`[${file.name}]`);
+          const original = isImage ? `<img src="${url}" style="max-width:200px;">` : `<a href="${url}" target="_blank">${file.name}</a>`;
+          chatRef.push({ name: currentUser, encoded, original });
+        });
+      });
+    };
+
+    usersRef.on("value", snap => {
+      const users = snap.val() || {};
+      activeUsers.textContent = Object.keys(users).join(", ");
+    });
   </script>
 </body>
 </html>
