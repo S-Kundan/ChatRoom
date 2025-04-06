@@ -136,14 +136,14 @@
   <div id="userList"><b>Active Users:</b> <span id="activeUsers"></span></div>
   <button id="decodeBtn"></button>  <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyCqJnyy53xEI0l7BaK6yVpVxlarRgzBRV0",
-      authDomain: "chatapp-a898c.firebaseapp.com",
-      databaseURL: "https://chatapp-a898c-default-rtdb.firebaseio.com",
-      projectId: "chatapp-a898c",
-      storageBucket: "chatapp-a898c.appspot.com",
-      messagingSenderId: "487437407547",
-      appId: "1:487437407547:web:7caeafe7bbe4a72718931e"
-    };
+  apiKey: "AIzaSyCqJnyy53xEI0l7BaK6yVpVxlarRgzBRV0",
+  authDomain: "chatapp-a898c.firebaseapp.com",
+  databaseURL: "https://chatapp-a898c-default-rtdb.firebaseio.com",
+  projectId: "chatapp-a898c",
+  storageBucket: "chatapp-a898c.appspot.com", // <-- ये लाइन सही है
+  messagingSenderId: "487437407547",
+  appId: "1:487437407547:web:7caeafe7bbe4a72718931e"
+};
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
