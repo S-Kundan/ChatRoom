@@ -117,157 +117,155 @@
 </head>
 <body>
   <div id="overlay">
-    <h2></h2>
+    <h2>Enter Room Password</h2>
     <input type="password" id="roomPass" placeholder="Enter Password">
     <button onclick="checkPassword()">Enter</button>
   </div>
   <div id="nameOverlay" style="display:none;">
-    <h2></h2>
+    <h2>Enter Your Name</h2>
     <input type="text" id="username" placeholder="Your Name">
     <button onclick="saveUsername()">Start</button>
-  </div>  <div id="chatbox"></div>
+  </div>
+  <div id="chatbox"></div>
   <div id="controls">
-    <input type="text" id="message" placeholder="">
+    <input type="text" id="message" placeholder="Type a message">
     <button id="upload">📎</button>
     <button id="send">Send</button>
   </div>
   <input type="file" id="fileInput" style="display:none;">
   <button id="clearBtn" onclick="clearChat()">Clear</button>
   <div id="userList"><b>Active Users:</b> <span id="activeUsers"></span></div>
-  <button id="decodeBtn"></button>  <script>
-    const firebaseConfig = {
+  <button id="decodeBtn"></button>
+  <audio id="notifSound" src="https://notificationsounds.com/notification-sounds/event-538/download/mp3" preload="auto"></audio><script>
+const firebaseConfig = {
   apiKey: "AIzaSyCqJnyy53xEI0l7BaK6yVpVxlarRgzBRV0",
   authDomain: "chatapp-a898c.firebaseapp.com",
   databaseURL: "https://chatapp-a898c-default-rtdb.firebaseio.com",
   projectId: "chatapp-a898c",
-  storageBucket: "chatapp-a898c.appspot.com", // <-- ये लाइन सही है
+  storageBucket: "chatapp-a898c.appspot.com",
   messagingSenderId: "487437407547",
   appId: "1:487437407547:web:7caeafe7bbe4a72718931e"
 };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const storage = firebase.storage();
-    const chatRef = db.ref("messages");
-    const usersRef = db.ref("activeUsers");
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const storage = firebase.storage();
+const chatRef = db.ref("messages");
+const usersRef = db.ref("activeUsers");
 
-    let currentUser = "";
-    let decodeHeld = false;
+let currentUser = "";
+let decodeHeld = false;
 
-    const codeMap = {
-      a:"あ",b:"い",c:"う",d:"え",e:"お",f:"か",g:"き",h:"く",i:"け",j:"こ",k:"さ",l:"し",m:"す",n:"せ",o:"そ",
-      p:"た",q:"ち",r:"つ",s:"て",t:"と",u:"な",v:"に",w:"ぬ",x:"ね",y:"の",z:"は",
-      A:"ヒ",B:"フ",C:"ヘ",D:"ホ",E:"マ",F:"ミ",G:"ム",H:"メ",I:"モ",J:"ヤ",K:"ユ",L:"ヨ",M:"ラ",N:"リ",O:"ル",P:"レ",
-      Q:"ロ",R:"ワ",S:"ヲ",T:"ン",U:"ガ",V:"ギ",W:"グ",X:"ゲ",Y:"ゴ",Z:"ザ",
-      0:"ゼ",1:"ジ",2:"ズ",3:"ゾ",4:"ダ",5:"ヂ",6:"ヅ",7:"デ",8:"ド",9:"バ",
-      " ":"␣",".":"。",",":"、","!":"！","?":"？"
-    };
+const codeMap = {
+  a:"あ",b:"い",c:"う",d:"え",e:"お",f:"か",g:"き",h:"く",i:"け",j:"こ",k:"さ",l:"し",m:"す",n:"せ",o:"そ",
+  p:"た",q:"ち",r:"つ",s:"て",t:"と",u:"な",v:"に",w:"ぬ",x:"ね",y:"の",z:"は",
+  A:"ヒ",B:"フ",C:"ヘ",D:"ホ",E:"マ",F:"ミ",G:"ム",H:"メ",I:"モ",J:"ヤ",K:"ユ",L:"ヨ",M:"ラ",N:"リ",O:"ル",P:"レ",
+  Q:"ロ",R:"ワ",S:"ヲ",T:"ン",U:"ガ",V:"ギ",W:"グ",X:"ゲ",Y:"ゴ",Z:"ザ",
+  0:"ゼ",1:"ジ",2:"ズ",3:"ゾ",4:"ダ",5:"ヂ",6:"ヅ",7:"デ",8:"ド",9:"バ",
+  " ":"␣",".":"。",",":"、","!":"！","?":"？"
+};
 
-    function encode(text) {
-      return text.split('').map(ch => codeMap[ch] || ch).join('');
+function encode(text) {
+  return text.split('').map(ch => codeMap[ch] || ch).join('');
+}
+
+document.getElementById("send").onclick = sendMessage;
+function sendMessage() {
+  const real = message.value.trim();
+  if (!real || !currentUser) return;
+  const encoded = encode(real);
+  chatRef.push({ name: currentUser, encoded, original: real });
+  message.value = "";
+}
+
+chatRef.on("child_added", snap => {
+  const data = snap.val();
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg-wrapper";
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "msg";
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "username";
+  nameSpan.textContent = `[${data.name}] `;
+  msgDiv.dataset.original = data.original;
+  msgDiv.dataset.encoded = data.encoded;
+  msgDiv.textContent = decodeHeld ? data.original : data.encoded;
+  msgDiv.prepend(nameSpan);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "delete-btn";
+  deleteBtn.onclick = () => {
+    const pass = prompt("Enter admin delete code or your name to delete:");
+    if (pass === "1252" || pass === data.name) {
+      snap.ref.remove(); wrapper.remove();
     }
+  };
 
-    document.getElementById("send").onclick = sendMessage;
-    function sendMessage() {
-      const real = message.value.trim();
-      if (!real || !currentUser) return;
-      const encoded = encode(real);
-      chatRef.push({ name: currentUser, encoded, original: real });
-      message.value = "";
-    }
+  wrapper.appendChild(deleteBtn);
+  wrapper.appendChild(msgDiv);
+  document.getElementById("chatbox").appendChild(wrapper);
+  chatbox.scrollTop = chatbox.scrollHeight;
+  document.getElementById("notifSound").play();
+});
 
-    chatRef.on("child_added", snap => {
-      const data = snap.val();
-      const wrapper = document.createElement("div");
-      wrapper.className = "msg-wrapper";
+function checkPassword() {
+  const pass = document.getElementById("roomPass").value;
+  if (pass === "1252") {
+    overlay.style.display = "none";
+    nameOverlay.style.display = "flex";
+  } else alert("Wrong password!");
+}
 
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg";
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "username";
-      nameSpan.textContent = `[${data.name}] `;
-      msgDiv.dataset.original = data.original;
-      msgDiv.dataset.encoded = data.encoded;
-      msgDiv.textContent = decodeHeld ? data.original : data.encoded;
-      msgDiv.prepend(nameSpan);
+function saveUsername() {
+  const name = document.getElementById("username").value.trim();
+  if (name) {
+    currentUser = name;
+    nameOverlay.style.display = "none";
+    usersRef.child(name).set(true);
+    usersRef.child(name).onDisconnect().remove();
+  } else alert("Enter your name!");
+}
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "delete-btn";
-      deleteBtn.onclick = () => {
-        const pass = prompt("Enter admin delete code or your name to delete:");
-        if (pass === "1252" || pass === data.name) {
-          snap.ref.remove(); wrapper.remove();
-        }
-      };
+function clearChat() {
+  const pass = prompt("Enter admin delete code:");
+  if (pass === "1234") {
+    chatRef.remove();
+    chatbox.innerHTML = "";
+  }
+}
 
-      wrapper.appendChild(deleteBtn);
-      wrapper.appendChild(msgDiv);
-      document.getElementById("chatbox").appendChild(wrapper);
-      document.getElementById("chatbox").scrollTop = chatbox.scrollHeight;
-      document.getElementById("notifSound").play();
+document.getElementById("upload").onclick = () => fileInput.click();
+fileInput.onchange = e => {
+  const file = e.target.files[0];
+  if (!file || !currentUser) return;
+  const filePath = `uploads/${Date.now()}_${file.name}`;
+  const uploadTask = storage.ref(filePath).put(file);
+
+  uploadTask.then(snapshot => {
+    snapshot.ref.getDownloadURL().then(url => {
+      const isImage = file.type.startsWith("image/");
+      const encoded = encode(`[${file.name}]`);
+      const original = isImage ? `<img src="${url}" style="max-width:200px;">` : `<a href="${url}" target="_blank">${file.name}</a>`;
+      chatRef.push({ name: currentUser, encoded, original });
     });
+  }).catch(error => {
+    alert("Upload failed: " + error.message);
+  });
+};
 
-    function checkPassword() {
-      const pass = document.getElementById("roomPass").value;
-      if (pass === "1252") {
-        overlay.style.display = "none";
-        nameOverlay.style.display = "flex";
-      } else alert("Wrong password!");
-    }
+usersRef.on("value", snap => {
+  const users = snap.val() || {};
+  activeUsers.textContent = Object.keys(users).join(", ");
+});
 
-    function saveUsername() {
-      const name = document.getElementById("username").value.trim();
-      if (name) {
-        currentUser = name;
-        nameOverlay.style.display = "none";
-        usersRef.child(name).set(true);
-        usersRef.child(name).onDisconnect().remove();
-      } else alert("Enter your name!");
-    }
-
-    function clearChat() {
-      const pass = prompt("Enter admin delete code:");
-      if (pass === "1234") {
-        chatRef.remove();
-        chatbox.innerHTML = "";
-      }
-    }
-
-    document.getElementById("upload").onclick = () => fileInput.click();
-    fileInput.onchange = e => {
-      const file = e.target.files[0];
-      if (!file || !currentUser) return;
-      const filePath = `uploads/${Date.now()}_${file.name}`;
-      storage.ref(filePath).put(file).then(snapshot => {
-        snapshot.ref.getDownloadURL().then(url => {
-          const isImage = file.type.startsWith("image/");
-          const encoded = encode(`[${file.name}]`);
-          const original = isImage ? `<img src="${url}" style="max-width:200px;">` : `<a href="${url}" target="_blank">${file.name}</a>`;
-          chatRef.push({ name: currentUser, encoded, original });
-        });
-      });
-    };
-
-    usersRef.on("value", snap => {
-      const users = snap.val() || {};
-      activeUsers.textContent = Object.keys(users).join(", ");
-    });
-
-    const decodeBtn = document.getElementById("decodeBtn");
-    decodeBtn.onmousedown = decodeBtn.ontouchstart = () => {
-      decodeHeld = true;
-      document.querySelectorAll(".msg").forEach(msg => {
-        msg.textContent = msg.dataset.original;
-        msg.prepend(msg.querySelector(".username"));
-      });
-    };
 decodeBtn.onmousedown = decodeBtn.ontouchstart = () => {
   decodeHeld = true;
   document.querySelectorAll(".msg").forEach(msg => {
     const username = msg.querySelector(".username");
-    msg.innerHTML = ""; // pura clear kar do
-    msg.appendChild(username); // username dobara add karo
-    msg.append(" " + msg.dataset.original); // decoded text add karo
+    msg.innerHTML = "";
+    msg.appendChild(username);
+    msg.append(" " + msg.dataset.original);
   });
 };
 
@@ -280,5 +278,5 @@ decodeBtn.onmouseup = decodeBtn.ontouchend = () => {
     msg.append(" " + msg.dataset.encoded);
   });
 };
-  </script></body>
+</script></body>
 </html>
