@@ -244,7 +244,7 @@ chatRef.on("child_added", snap => {
   deleteBtn.innerHTML = "x";
   deleteBtn.onclick = () => {
     const pass = prompt("Delete? Enter '1234' or your name:");
-    if (pass === "1234" || pass === data.name) {
+    if (pass === "   " || pass === data.name) {
       snap.ref.remove(); 
       wrapper.remove();
     }
