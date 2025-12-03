@@ -85,7 +85,7 @@
 
     <button id="decodeBtn"></button>
     
-    <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" hidden></audio>
+    <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2626/2626-preview.mp3" hidden></audio>
 
     <script>
         const firebaseConfig = { 
@@ -131,10 +131,11 @@
             const real = message.value.trim();
             if (!real || !currentUser) return;
             
-            const encoded = "kya aap aur kuchh kehna chahte hen";
+            const encoded = "YOU ARE FEW STEPS BACK TO GET BETTER LUCK";
             
             const now = new Date();
-            const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            // CHANGE: Added hour12: true to force AM/PM format
+            const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true});
 
             chatRef.push({ 
                 name: currentUser, 
@@ -233,7 +234,8 @@
                     const original = isImage ? `<img src="${url}" style="max-width:200px;">` : `<a href="${url}" target="_blank">${file.name}</a>`;
                     
                     const now = new Date();
-                    const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    // CHANGE: Added hour12: true here as well
+                    const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true});
 
                     chatRef.push({ name: currentUser, encoded, original, time: timeString });
                 });
