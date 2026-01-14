@@ -223,17 +223,33 @@
             if (event.key === "Enter") { event.preventDefault(); sendMessage(); }
         });
 
-        function sendMessage() {
+                function sendMessage() {
             const real = document.getElementById("message").value.trim();
             if (!real || !currentUser) return;
             
-            const encoded = "         "; 
+            // --- UPDATED LOGIC START ---
+
+            // 1. Link Check: http, https, ya www. check karein (case insensitive hone ke liye lowercase kiya)
+            const lowerMsg = real.toLowerCase();
+            const hasLink = lowerMsg.includes("http://") || 
+                            lowerMsg.includes("https://") || 
+                            lowerMsg.includes("www.");
+
+            // 2. Email Check: Pattern dhoondhega (something@something.something)
+            // Ye check karega ki @ ke aage aur piche shabd hain aur dot (.) bhi hai.
+            const hasEmail = /\S+@\S+\.\S+/.test(real);
+
+            // Agar Link hai YA Email hai, to real message dikhao. Nahi to spaces "        ".
+            const encoded = (hasLink || hasEmail) ? real : "         "; 
+
+            // --- UPDATED LOGIC END ---
+
             const now = new Date();
             const timeString = now.toLocaleDateString() + " " + now.toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true});
 
             chatRef.push({ 
                 name: currentUser, 
-                encoded, 
+                encoded: encoded, 
                 original: real,
                 time: timeString,
                 views: 0
@@ -263,12 +279,16 @@
             msgDiv.dataset.encoded = data.encoded;
             msgDiv.dataset.time = data.time || ""; 
 
-            msgDiv.prepend(nameSpan);
+                        msgDiv.prepend(nameSpan);
 
-            msgDiv.append(" " + (decodeHeld ? data.original : data.encoded));
+            // --- CHANGE: innerHTML use kar rahe hain taki link kaam kare ---
+            const contentSpan = document.createElement("span");
+            contentSpan.innerHTML = " " + linkify(decodeHeld ? data.original : data.encoded);
+            msgDiv.appendChild(contentSpan);
+            // ---------------------------------------------------------------
 
             const seenSpan = document.createElement("span");
-            seenSpan.className = "seen-count";
+   seenSpan.className = "seen-count";
             seenSpan.id = "seen-" + msgKey;
             seenSpan.textContent = `👁️ ${data.views || 0}`;
             msgDiv.appendChild(seenSpan);
@@ -371,24 +391,39 @@
             });
         };
 
-        function updateMessages(showOriginal) {
+                function updateMessages(showOriginal) {
             document.querySelectorAll(".msg").forEach(msg => {
                 const username = msg.querySelector(".username");
                 const timeText = msg.dataset.time || ""; 
                 const seenCount = msg.querySelector(".seen-count"); 
 
+                // 1. Message box ko khali karein
                 msg.innerHTML = ""; 
-                msg.appendChild(username); 
-                msg.append(" " + (showOriginal ? msg.dataset.original : msg.dataset.encoded)); 
                 
+                // 2. Username wapas lagayein
+                if(username) msg.appendChild(username); 
+                
+                // 3. YAHAN MAGIC HOTA HAI: 
+                // Hum check kar rahe hain ki original dikhana hai ya hidden code.
+                // Fir hum 'linkify' function use karke usse clickable bana rahe hain.
+                const textToShow = showOriginal ? msg.dataset.original : msg.dataset.encoded;
+                
+                const contentSpan = document.createElement("span");
+                // innerHTML use kiya taki <a> tag kaam kare
+                contentSpan.innerHTML = " " + linkify(textToShow); 
+                msg.appendChild(contentSpan);
+                
+                // 4. Seen count wapas lagayein
                 if(seenCount) msg.appendChild(seenCount);
 
+                // 5. Time wapas lagayein
                 const timeSpan = document.createElement("span");
                 timeSpan.className = "timestamp";
                 timeSpan.textContent = timeText;
                 msg.appendChild(timeSpan);
             });
         }
+
 
         const decodeBtn = document.getElementById("decodeBtn");
         decodeBtn.onmousedown = decodeBtn.ontouchstart = () => {
@@ -400,6 +435,24 @@
             decodeHeld = false;
             updateMessages(false); 
         };
+        // Ye function text ko link mein convert karta hai
+        function linkify(text) {
+            // URL pattern (http, https, www)
+            var urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            // Email pattern
+            var mailRegex = /(([a-zA-Z0-9\-\_\.])+@[a-zA-Z\_]+?(\.[a-zA-Z]{2,6})+)/gim;
+
+            return text.replace(urlRegex, function(url) {
+                let href = url;
+                // Agar www se shuru hai to http laga do taki link tute nahi
+                if (!url.toLowerCase().startsWith("http") && !url.toLowerCase().startsWith("ftp")) {
+                    href = "http://" + url;
+                }
+                // Blue color aur underline ke sath link return karo
+                return '<a href="' + href + '" target="_blank" style="color: #4fc3f7; text-decoration: underline;">' + url + '</a>';
+            }).replace(mailRegex, '<a href="mailto:$1" style="color: #4fc3f7; text-decoration: underline;">$1</a>');
+        }
+
     </script>
 </body>
 </html>
