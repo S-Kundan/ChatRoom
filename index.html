@@ -155,14 +155,33 @@
         const TELEGRAM_CHAT_ID = "1664362316";
 
         // --- REPLY FUNCTIONS ---
-        function initiateReply(name, text) {
-            replyingTo = { name: name, text: text };
-            document.getElementById("replyPreview").style.display = "block";
-            document.getElementById("replyToName").textContent = "Replying to " + name;
-            
-            // Preview text (No HTML tags)
-            let cleanText = text.replace(/<[^>]*>?/gm, ''); 
-            if(cleanText.length > 50) cleanText = cleanText.substring(0, 50) + "...";
+        // --- UPDATED INITIATE REPLY FUNCTION ---
+function initiateReply(name, text) {
+    // Backend memory mein original text rakhenge (Decode ke liye)
+    replyingTo = { name: name, text: text };
+    
+    document.getElementById("replyPreview").style.display = "block";
+    document.getElementById("replyToName").textContent = "Replying to " + name;
+    
+    // --- SHOW/HIDE LOGIC FOR PREVIEW ---
+    
+    // Check karein ki kya text mein koi Link hai?
+    const linkPattern = /((https?:\/\/)|(www\.)|[a-zA-Z0-9-]+\.(com|net|org|in|co|us|gov|edu|info|io))/i;
+    const hasLink = linkPattern.test(text);
+    
+    if (hasLink) {
+        // Agar Link hai, to dikhao (HTML tags hata kar)
+        let cleanText = text.replace(/<[^>]*>?/gm, ''); 
+        if(cleanText.length > 50) cleanText = cleanText.substring(0, 50) + "...";
+        document.getElementById("replyTextPreview").textContent = cleanText;
+    } else {
+        // Agar Normal Text hai, to "..." dikhao (HIDDEN)
+        document.getElementById("replyTextPreview").textContent = "...";
+    }
+    
+    document.getElementById("message").focus();
+}
+ > 50) cleanText = cleanText.substring(0, 50) + "...";
             document.getElementById("replyTextPreview").textContent = cleanText;
             
             document.getElementById("message").focus();
