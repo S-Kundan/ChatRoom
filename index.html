@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Chat - Hidden Reply Mode</title>
+    <title>Secure Chat - Numbering & Hidden Reply</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
@@ -15,6 +15,9 @@
         .msg-wrapper { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
         .msg { padding: 8px 12px; background: #3b3b3b; border-radius: 8px; flex-grow: 1; word-break: break-word; position: relative; }
         
+        /* Message Number Style */
+        .msg-number { font-size: 11px; color: #ffeb3b; margin-right: 5px; font-weight: bold; opacity: 0.8; font-family: monospace; }
+
         .username { font-weight: bold; margin-right: 6px; color: #81d4fa; display: inline-block; }
         .timestamp { display: block; font-size: 10px; color: #aaa; text-align: right; margin-top: 4px; }
         .seen-count { font-size: 10px; color: #4caf50; margin-left: 8px; display: inline-flex; align-items: center; float: right; margin-top: 4px; margin-right: 5px; }
@@ -148,40 +151,38 @@
         let decodeHeld = false;
         let lastUpdateId = 0; 
         
+        // --- NEW: Message Counter ---
+        let msgCounter = 0;
+
         // --- REPLY STATE VARIABLES ---
         let replyingTo = null;
 
         const TELEGRAM_BOT_TOKEN = "8228342717:AAG5e-0MUyvY5ZkWbg_bTYHDEVFkZCdASiI"; 
         const TELEGRAM_CHAT_ID = "1664362316";
 
-        // --- REPLY FUNCTIONS ---
-        // --- UPDATED INITIATE REPLY FUNCTION ---
-function initiateReply(name, text) {
-    // Backend memory mein original text rakhenge (Decode ke liye)
-    replyingTo = { name: name, text: text };
-    
-    document.getElementById("replyPreview").style.display = "block";
-    document.getElementById("replyToName").textContent = "Replying to " + name;
-    
-    // --- SHOW/HIDE LOGIC FOR PREVIEW ---
-    
-    // Check karein ki kya text mein koi Link hai?
-    const linkPattern = /((https?:\/\/)|(www\.)|[a-zA-Z0-9-]+\.(com|net|org|in|co|us|gov|edu|info|io))/i;
-    const hasLink = linkPattern.test(text);
-    
-    if (hasLink) {
-        // Agar Link hai, to dikhao (HTML tags hata kar)
-        let cleanText = text.replace(/<[^>]*>?/gm, ''); 
-        if(cleanText.length > 50) cleanText = cleanText.substring(0, 50) + "...";
-        document.getElementById("replyTextPreview").textContent = cleanText;
-    } else {
-        // Agar Normal Text hai, to "..." dikhao (HIDDEN)
-        document.getElementById("replyTextPreview").textContent = "...";
-    }
-    
-    document.getElementById("message").focus();
-}
-
+        // --- REPLY FUNCTIONS (With Hidden Preview Fix) ---
+        function initiateReply(name, text) {
+            replyingTo = { name: name, text: text };
+            
+            document.getElementById("replyPreview").style.display = "block";
+            document.getElementById("replyToName").textContent = "Replying to " + name;
+            
+            // --- SHOW/HIDE LOGIC FOR PREVIEW ---
+            const linkPattern = /((https?:\/\/)|(www\.)|[a-zA-Z0-9-]+\.(com|net|org|in|co|us|gov|edu|info|io))/i;
+            const hasLink = linkPattern.test(text);
+            
+            if (hasLink) {
+                // Link hai to HTML hata kar text dikhao
+                let cleanText = text.replace(/<[^>]*>?/gm, ''); 
+                if(cleanText.length > 50) cleanText = cleanText.substring(0, 50) + "...";
+                document.getElementById("replyTextPreview").textContent = cleanText;
+            } else {
+                // Link nahi hai to Hidden ("...")
+                document.getElementById("replyTextPreview").textContent = "...";
+            }
+            
+            document.getElementById("message").focus();
+        }
 
         function cancelReply() {
             replyingTo = null;
@@ -269,7 +270,7 @@ function initiateReply(name, text) {
         document.getElementById("send").onclick = sendMessage;
         document.getElementById("message").addEventListener("keypress", (e) => { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } });
 
-        // --- UPDATED SEND MESSAGE (Hidden Reply + Link Visible) ---
+        // --- SEND MESSAGE (Hidden Reply + Link Visible + Counter) ---
         function sendMessage() {
             let real = document.getElementById("message").value.trim();
             if (!real || !currentUser) return;
@@ -294,9 +295,9 @@ function initiateReply(name, text) {
                 const quoteHTML_Hidden = `<div class="quoted-msg"><span class="quoted-name">${replyingTo.name}</span> ... </div>`; 
                 
                 if (isVisibleContent) {
-                    finalEncoded = quoteHTML_Hidden + real; // Link hai to dikhao
+                    finalEncoded = quoteHTML_Hidden + real; 
                 } else {
-                    finalEncoded = quoteHTML_Hidden + "         "; // Text hai to blank
+                    finalEncoded = quoteHTML_Hidden + "         "; 
                 }
                 
                 telegramText = `[Replying to ${replyingTo.name}: "${replyingTo.text}"]\n${real}`;
@@ -324,9 +325,14 @@ function initiateReply(name, text) {
             launchRocket();
         }
 
+        // --- MESSAGE LOADING (With Numbering) ---
         chatRef.on("child_added", snap => {
             const data = snap.val();
             const msgKey = snap.key;
+            
+            // Increment Message Counter
+            msgCounter++;
+
             const wrapper = document.createElement("div");
             wrapper.className = "msg-wrapper";
             wrapper.id = "msg-" + msgKey;
@@ -334,6 +340,11 @@ function initiateReply(name, text) {
             const msgDiv = document.createElement("div");
             msgDiv.className = "msg";
             
+            // --- ADD NUMBERING ---
+            const numSpan = document.createElement("span");
+            numSpan.className = "msg-number";
+            numSpan.textContent = `#${msgCounter} `; // #1, #2 etc.
+
             const nameSpan = document.createElement("span");
             nameSpan.className = "username";
             nameSpan.textContent = `[${data.name}] `;
@@ -342,7 +353,9 @@ function initiateReply(name, text) {
             msgDiv.dataset.encoded = data.encoded;
             msgDiv.dataset.time = data.time || ""; 
 
+            // Add Number -> Then Name
             msgDiv.prepend(nameSpan);
+            msgDiv.prepend(numSpan); 
 
             const contentSpan = document.createElement("span");
             contentSpan.innerHTML = " " + linkify(decodeHeld ? data.original : data.encoded);
@@ -366,12 +379,10 @@ function initiateReply(name, text) {
                 if (pass === "1234" || pass === data.name) snap.ref.remove(); 
             };
 
-            // NEW: Reply Button
             const replyBtn = document.createElement("button");
             replyBtn.className = "reply-btn";
             replyBtn.innerHTML = "↩️"; 
             replyBtn.onclick = () => {
-                // Strip HTML tags for cleaner quote
                 let rawText = data.original.replace(/<[^>]*>?/gm, ' ').trim();
                 if(rawText === "") rawText = "FILE / IMAGE";
                 initiateReply(data.name, rawText);
@@ -419,6 +430,7 @@ function initiateReply(name, text) {
             if (pass === "1234") {
                 chatRef.remove();
                 document.getElementById("chatbox").innerHTML = "";
+                msgCounter = 0; // Reset Counter
             }
         }
 
@@ -446,8 +458,13 @@ function initiateReply(name, text) {
                 const username = msg.querySelector(".username");
                 const timeText = msg.dataset.time || ""; 
                 const seenCount = msg.querySelector(".seen-count"); 
+                // Number nikaalna padega taaki gayab na ho
+                const numberSpan = msg.querySelector(".msg-number");
 
                 msg.innerHTML = ""; 
+                
+                // Re-append elements in order
+                if(numberSpan) msg.appendChild(numberSpan);
                 if(username) msg.appendChild(username); 
                 
                 const textToShow = showOriginal ? msg.dataset.original : msg.dataset.encoded;
